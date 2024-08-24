@@ -49,9 +49,10 @@ export class FirestoreDelete {
   private root: string;
   private parent: string;
 
+  private filters: any[];
+
   /**
    * Construct a new Firestore delete operation.
-   *
    * @param project the Firestore project ID.
    * @param path path to a document or collection.
    * @param options options object with three optional parameters:
@@ -68,7 +69,10 @@ export class FirestoreDelete {
       allCollections?: boolean;
       databaseId: string;
     },
+    filters: any[] = [],
   ) {
+    this.filters = filters;
+
     this.project = project;
     this.path = path || "";
     this.recursive = Boolean(options.recursive);
@@ -157,7 +161,6 @@ export class FirestoreDelete {
    *
    * See:
    * https://firebase.google.com/docs/firestore/reference/rest/v1/StructuredQuery
-   *
    * @param allDescendants true if subcollections should be included.
    * @param batchSize maximum number of documents to target (limit).
    * @param startAfter document name to start after (optional).
@@ -199,6 +202,28 @@ export class FirestoreDelete {
               },
             },
           },
+          {
+            fieldFilter: {
+              field: {
+                fieldPath: "jobType",
+              },
+              op: "EQUAL",
+              value: {
+                stringValue: "scheduledCleanUp",
+              },
+            },
+          },
+          {
+            fieldFilter: {
+              field: {
+                fieldPath: "status",
+              },
+              op: "EQUAL",
+              value: {
+                referenceValue: "waiting",
+              },
+            },
+          },
         ],
       },
     };
@@ -207,13 +232,9 @@ export class FirestoreDelete {
       structuredQuery: {
         where: where,
         limit: batchSize,
-        from: [
-          {
-            allDescendants: allDescendants,
-          },
-        ],
+        from: [{ collectionId: "jobQueue" }],
         select: {
-          fields: [{ fieldPath: "__name__" }],
+          fields: [{ fieldPath: "__name__" }, { fieldPath: "jobType" }],
         },
         orderBy: [{ field: { fieldPath: "__name__" } }],
       },
@@ -236,7 +257,6 @@ export class FirestoreDelete {
    *
    * See:
    * https://firebase.google.com/docs/firestore/reference/rest/v1/StructuredQuery
-   *
    * @param allDescendants true if subcollections should be included.
    * @param batchSize maximum number of documents to target (limit).
    * @param startAfter document name to start after (optional).
@@ -276,7 +296,6 @@ export class FirestoreDelete {
    *
    * For document format see:
    * https://firebase.google.com/docs/firestore/reference/rest/v1/Document
-   *
    * @param allDescendants true if subcollections should be included,
    * @param batchSize the maximum size of the batch.
    * @param startAfter the name of the document to start after (optional).
@@ -309,7 +328,6 @@ export class FirestoreDelete {
   /**
    * Repeatedly query for descendants of a path and delete them in batches
    * until no documents remain.
-   *
    * @return a promise for the entire operation.
    */
   private recursiveBatchDelete() {
@@ -474,7 +492,6 @@ export class FirestoreDelete {
    * Delete everything under a given path. If the path represents
    * a document the document is deleted and then all descendants
    * are deleted.
-   *
    * @return a promise for the entire operation.
    */
   private deletePath(): Promise<any> {
@@ -503,7 +520,6 @@ export class FirestoreDelete {
 
   /**
    * Delete an entire database by finding and deleting each collection.
-   *
    * @return a promise for all of the operations combined.
    */
   public deleteDatabase(): Promise<any[]> {
@@ -535,7 +551,6 @@ export class FirestoreDelete {
   /**
    * Check if a path has any children. Useful for determining
    * if deleting a path will affect more than one document.
-   *
    * @return a promise that returns true if the path has children and false otherwise.
    */
   public checkHasChildren(): Promise<boolean> {
